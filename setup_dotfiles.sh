@@ -163,8 +163,186 @@ echo "Note: If you encounter errors due to existing files, you can either:"
 echo "- Back up the conflicting files and then retry the checkout"
 echo "- Use '${GIT_ALIAS} checkout -f' to force overwrite (be careful!)"
 echo ""
+# —————— WARP TERMINAL CONFIGURATION ——————
+print_status "Checking for Warp terminal configuration..."
+
+# Only proceed if running on Linux
+if [[ "$(uname)" == "Linux" ]]; then
+  # Check if Warp is installed
+  if command -v warp-terminal &>/dev/null || [ -f "/opt/warpdotdev/warp-terminal/warp" ]; then
+    print_status "Warp terminal detected. Setting up as default terminal..."
+    
+    # Set Warp as the default terminal in GNOME
+    if command -v gsettings &>/dev/null; then
+      gsettings set org.gnome.desktop.default-applications.terminal exec 'warp-terminal' 2>/dev/null || \
+        print_warning "Failed to set Warp as default terminal through gsettings."
+      gsettings set org.gnome.desktop.default-applications.terminal exec-arg '' 2>/dev/null || \
+        print_warning "Failed to set terminal exec arguments through gsettings."
+      print_success "Set Warp as default terminal application in GNOME settings."
+    else
+      print_warning "gsettings not found. Skipping GNOME terminal configuration."
+    fi
+    
+    # Set up environment variables
+    ENVIRONMENT_FILE="/etc/environment"
+    WARP_ENV_VARS="# Added by dotfiles setup - Warp terminal configuration
+TERMINAL=/usr/bin/warp-terminal
+DEFAULT_TERMINAL=/usr/bin/warp-terminal"
+    
+    if [ -w "$ENVIRONMENT_FILE" ]; then
+      # Check if environment variables already exist
+      if ! grep -q "TERMINAL=/usr/bin/warp-terminal" "$ENVIRONMENT_FILE"; then
+        echo "$WARP_ENV_VARS" | sudo tee -a "$ENVIRONMENT_FILE" >/dev/null || \
+          print_warning "Failed to update $ENVIRONMENT_FILE."
+        print_success "Added terminal environment variables to $ENVIRONMENT_FILE."
+      else
+        print_status "Terminal environment variables already exist in $ENVIRONMENT_FILE."
+      fi
+    else
+      print_warning "Cannot write to $ENVIRONMENT_FILE. Please manually add these lines:
+$WARP_ENV_VARS"
+    fi
+    
+    # Create Nautilus scripts directory if it doesn't exist
+    NAUTILUS_SCRIPTS_DIR="$HOME/.local/share/nautilus/scripts"
+    if [ ! -d "$NAUTILUS_SCRIPTS_DIR" ]; then
+      mkdir -p "$NAUTILUS_SCRIPTS_DIR"
+      print_status "Created Nautilus scripts directory."
+    fi
+    
+    # Create "Open in Warp Terminal" script
+    WARP_SCRIPT="$NAUTILUS_SCRIPTS_DIR/Open in Warp Terminal"
+    cat > "$WARP_SCRIPT" << 'EOF'
+#!/bin/bash
+
+# Get the current selection from Nautilus
+for arg in "$@"; do
+    # Check if the selected item is a directory
+    if [ -d "$arg" ]; then
+        # If it's a directory, open Warp terminal in this directory
+        /usr/bin/warp-terminal --working-directory="$arg" &
+    else
+        # If it's a file, open Warp terminal in the parent directory
+        parent_dir=$(dirname "$arg")
+        /usr/bin/warp-terminal --working-directory="$parent_dir" &
+    fi
+    # We only process the first selected item
+    break
+done
+
+# If no arguments are provided, open in the current directory
+if [ $# -eq 0 ]; then
+    /usr/bin/warp-terminal --working-directory="$PWD" &
+fi
+
+exit 0
+EOF
+    chmod +x "$WARP_SCRIPT"
+    print_success "Created Nautilus script for opening Warp Terminal."
+    
+    # Create directory for app shortcuts if it doesn't exist
+    APP_DIR="$HOME/.local/share/applications"
+    if [ ! -d "$APP_DIR" ]; then
+      mkdir -p "$APP_DIR"
+      print_status "Created applications directory."
+    fi
+    
+    # Create script to open parent directory of file
+    SCRIPT_DIR="$HOME/.local/bin"
+    if [ ! -d "$SCRIPT_DIR" ]; then
+      mkdir -p "$SCRIPT_DIR"
+      print_status "Created local bin directory."
+    fi
+    
+    PARENT_DIR_SCRIPT="$SCRIPT_DIR/open-warp-parent-dir.sh"
+    cat > "$PARENT_DIR_SCRIPT" << 'EOF'
+#!/bin/bash
+
+# Check if a file path was provided
+if [ -z "$1" ]; then
+    echo "No file path provided."
+    exit 1
+fi
+
+# Get the parent directory of the file
+file_path="$1"
+parent_dir=$(dirname "$file_path")
+
+# Open Warp Terminal in the parent directory
+/usr/bin/warp-terminal --working-directory="$parent_dir"
+
+exit 0
+EOF
+    chmod +x "$PARENT_DIR_SCRIPT"
+    print_success "Created script for opening parent directory in Warp Terminal."
+    
+    # Create desktop entry for directories
+    WARP_FOLDER_DESKTOP="$APP_DIR/warp-open-folder.desktop"
+    cat > "$WARP_FOLDER_DESKTOP" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Open Folder in Warp Terminal
+Comment=Open the selected folder in Warp Terminal
+Icon=dev.warp.Warp
+Exec=/usr/bin/warp-terminal --working-directory=%f
+Terminal=false
+Categories=System;TerminalEmulator;
+MimeType=inode/directory;
+NoDisplay=false
+StartupNotify=true
+EOF
+    print_success "Created desktop entry for opening folders in Warp Terminal."
+    
+    # Create desktop entry for terminal URL handler
+    WARP_TERMINAL_HANDLER="$APP_DIR/warp-terminal-handler.desktop"
+    cat > "$WARP_TERMINAL_HANDLER" << 'EOF'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Warp Terminal
+GenericName=TerminalEmulator
+Comment=Open Warp Terminal with terminal:// URLs
+Exec=warp-terminal %u
+StartupWMClass=dev.warp.Warp
+Keywords=shell;prompt;command;commandline;cmd;terminal;
+Icon=dev.warp.Warp
+Categories=System;TerminalEmulator;
+Terminal=false
+MimeType=x-scheme-handler/terminal;
+NoDisplay=false
+EOF
+    print_success "Created desktop entry for handling terminal:// URLs."
+    
+    # Update desktop database
+    if command -v update-desktop-database &>/dev/null; then
+      update-desktop-database "$APP_DIR" || print_warning "Failed to update desktop database."
+      print_success "Updated desktop database."
+    fi
+    
+    # Register Warp as handler for inode/directory and terminal URLs
+    if command -v xdg-mime &>/dev/null; then
+      xdg-mime default warp-open-folder.desktop inode/directory || \
+        print_warning "Failed to set Warp as handler for directories."
+      xdg-mime default warp-terminal-handler.desktop x-scheme-handler/terminal || \
+        print_warning "Failed to set Warp as handler for terminal:// URLs."
+      print_success "Registered Warp as handler for directories and terminal:// URLs."
+    else
+      print_warning "xdg-mime not found. Skipping MIME type registration."
+    fi
+    
+    print_success "Warp terminal has been set as the default terminal with right-click integration."
+    print_status "Note: You may need to log out and log back in for all changes to take effect."
+  else
+    print_warning "Warp terminal not found. Skipping Warp configuration."
+    print_status "To install Warp, visit: https://www.warp.dev/"
+  fi
+else
+  print_status "Not running on Linux. Skipping Warp terminal configuration."
+fi
+
 print_success "Setup complete! Your dotfiles are now being tracked in a Git repository."
 echo ""
 echo "You can use '${GIT_ALIAS}' just like you would use 'git' to manage your dotfiles."
 echo "For example: '${GIT_ALIAS} status', '${GIT_ALIAS} add', '${GIT_ALIAS} commit', etc."
 
+####
