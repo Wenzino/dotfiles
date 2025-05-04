@@ -27,7 +27,7 @@ unset rc
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-export PATH="$PATH:/home/wenxuan/Downloads/Tools/android-studio-2024.3.1.15-linux (1)/android-studio/bin"
+export PATH="$PATH:/home/wenxuan/Downloads/Tools/android-studio-2024.3.1.15-linux/android-studio/bin"
 
 # Dotfiles management
 alias config='git --git-dir=/home/wenxuan/.dotfiles --work-tree=/home/wenxuan'
