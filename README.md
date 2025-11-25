@@ -1,11 +1,11 @@
-# 🛠️ dotfiles
+# dotfiles
 
 Minha coleção pessoal de dotfiles e configurações para restaurar rapidamente meu ambiente de desenvolvimento Linux.  
 Gerenciado com um repositório `bare` Git e um script de automação.
 
 ---
 
-## ✨ Conteúdo
+## Conteúdo
 
 - Alias para terminal (`.bashrc`, `.zshrc`, etc)
 - Configurações do Git (`.gitconfig`)
@@ -16,7 +16,7 @@ Gerenciado com um repositório `bare` Git e um script de automação.
 
 ---
 
-## 🚀 Restauração em nova máquina
+## Restauração em nova máquina
 
 Clone os dotfiles como um repositório `bare`:
 
