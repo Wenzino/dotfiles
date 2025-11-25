@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# Comandos para geracao de SSH key
 echo "Gerando nova chave SSH..."
 
 read -p "Digite seu email do GitHub: " email
@@ -13,7 +14,7 @@ ssh-add ~/.ssh/id_ed25519
 
 echo "Chave SSH gerada!"
 
-# Mostrar chave pública
+# Mostrar chave publica
 echo "Sua chave pública (adicione ao GitHub):"
 cat ~/.ssh/id_ed25519.pub
 
