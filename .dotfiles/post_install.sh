@@ -51,7 +51,7 @@ if [ -f ~/.zshrc ]; then
     echo "🔄 Atualizando .zshrc"
     source ~/.zshrc
 elif [ -f ~/.bashrc ]; then
-    echo "🔄 Atualizando .bashrc"
+    echo "Atualizando .bashrc"
     source ~/.bashrc
 fi
 
